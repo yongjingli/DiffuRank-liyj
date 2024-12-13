@@ -45,7 +45,11 @@ def import_model(path):
     _, ext = os.path.splitext(path)
     ext = ext.lower()
     if ext == ".obj":
-        bpy.ops.import_scene.obj(filepath=path)
+        try:
+            bpy.ops.import_scene.obj(filepath=path)
+        except:
+            bpy.ops.wm.obj_import(filepath=path)
+
     elif ext in [".glb", ".gltf"]:
         bpy.ops.import_scene.gltf(filepath=path)
     elif ext == ".stl":
@@ -72,10 +76,10 @@ def scene_bbox(single_obj=None, ignore_matrix=False):
     found = False
     for obj in scene_meshes() if single_obj is None else [single_obj]:
         found = True
-        for coord in obj.bound_box:
+        for coord in obj.bound_box:   # 得到的是box的8个定点的位置坐标
             coord = Vector(coord)
             if not ignore_matrix:
-                coord = obj.matrix_world @ coord
+                coord = obj.matrix_world @ coord   # 从局部坐标转到世界坐标
             bbox_min = tuple(min(x, y) for x, y in zip(bbox_min, coord))
             bbox_max = tuple(max(x, y) for x, y in zip(bbox_max, coord))
     if not found:
@@ -100,7 +104,7 @@ def normalize_scene():
     #        if obj != parent_empty:
     #            obj.parent = parent_empty
     bbox_min, bbox_max = scene_bbox()
-    scale = 1 / max(bbox_max - bbox_min)
+    scale = 1 / max(bbox_max - bbox_min)   # 除以box的w,h, 进行尺度的缩放，保证物体在0-1的box范围内
 
     for obj in scene_root_objects():
         obj.scale = obj.scale * scale
@@ -108,7 +112,7 @@ def normalize_scene():
     # Apply scale to matrix_world.
     bpy.context.view_layer.update()
 
-    bbox_min, bbox_max = scene_bbox()
+    bbox_min, bbox_max = scene_bbox()    # 将scene_bbox的中心作为世界坐标的原点
     offset = -(bbox_min + bbox_max) / 2
     for obj in scene_root_objects():
         obj.matrix_world.translation += offset
@@ -196,7 +200,7 @@ def create_uniform_light(backend):
     # Random direction to decorrelate axis-aligned sides.
     pos = Vector(UNIFORM_LIGHT_DIRECTION)
     angle = 0.0092 if backend == "CYCLES" else math.pi
-    create_light(pos, energy=5.0, angle=angle)
+    create_light(pos, energy=5.0, angle=angle)    # 目前只是添加了两个光源
     create_light(-pos, energy=5.0, angle=angle)
 
 
@@ -442,7 +446,7 @@ def setup_nodes(output_path, capturing_material_alpha: bool = False, basic_light
         # alpha values are not sRGB, and so that we perform ambient+diffuse
         # lighting in linear RGB space.
         color_node = tree.nodes.new(type="CompositorNodeConvertColorSpace")
-        color_node.from_color_space = "Linear"
+        # color_node.from_color_space = "Linear"
         color_node.to_color_space = "sRGB"
         tree.links.new(raw_color_socket, color_node.inputs[0])
         color_socket = color_node.outputs[0]
@@ -467,8 +471,8 @@ def setup_nodes(output_path, capturing_material_alpha: bool = False, basic_light
 
 
 def render_scene(output_path, fast_mode: bool, extract_material: bool, basic_lighting: bool):
-    # use_workbench=True
-    use_workbench = False
+    use_workbench=True
+    # use_workbench = False
     bpy.context.scene.render.engine == "CYCLES"
     bpy.context.scene.cycles.samples = 16
     bpy.context.scene.cycles.use_denoising = True
@@ -610,7 +614,8 @@ def save_rendering_dataset(
     if light_mode == "random":
         create_random_lights()
     elif light_mode == "uniform":
-        create_uniform_light(backend)
+        create_uniform_light(backend)     # 可以考虑在uniform(这里只是加了两个光源)的基础上加几个random的light
+        # create_random_lights(2)
     create_camera()
     create_vertex_color_shaders()
 
@@ -638,7 +643,7 @@ def save_rendering_dataset(
             camera_dist_max=camera_dist_max,
         )
         if light_mode == "camera":
-            create_camera_light()
+            create_camera_light()      # 如果采用camera light 那么渲染出来的图像基本就没有阴影
 
         # Save the current camera data
         transform_matrix = bpy.context.scene.camera.matrix_world  # 4x4 transformation matrix
@@ -731,6 +736,9 @@ def main():
 
         cur_output_path = os.path.join(args.parent_dir, 'Cap3D_imgs/%s'%(uid.split('/')[-1].split('.')[0]))
         try:
+            # 可以直接采用.obj进行渲染
+            # uid = "/home/pxn-lyj/Egolee/data/meshs/obj_000490/taizi1kgxiyiye.obj"
+            # uid = "/home/pxn-lyj/Egolee/programs/DiffuRank-liyj/example_material/glbs/822202b6b8594342b632b0a39432642a.glb"
             save_rendering_dataset(
                 input_path=uid,
                 output_path=cur_output_path,

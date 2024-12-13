@@ -150,7 +150,7 @@ def setup_nodes(output_path, capturing_material_alpha: bool = False, basic_light
         # alpha values are not sRGB, and so that we perform ambient+diffuse
         # lighting in linear RGB space.
         color_node = tree.nodes.new(type="CompositorNodeConvertColorSpace")
-        color_node.from_color_space = "Linear"
+        # color_node.from_color_space = "Linear"
         color_node.to_color_space = "sRGB"
         tree.links.new(raw_color_socket, color_node.inputs[0])
         color_socket = color_node.outputs[0]
@@ -501,6 +501,8 @@ render_time = []
 file_size = []
 dis = []
 for uid in uid_paths:
+    # uid = "/home/pxn-lyj/Egolee/data/meshs/obj_000490/taizi1kgxiyiye.obj"
+
     if not os.path.exists(uid):
         print('object not exist, check the file path')
         continue
@@ -512,7 +514,10 @@ for uid in uid_paths:
     _, ext = os.path.splitext(path)
     ext = ext.lower()
     if ext == ".obj":
-        bpy.ops.import_scene.obj(filepath=path)
+        try:
+            bpy.ops.import_scene.obj(filepath=path)
+        except:
+            bpy.ops.wm.obj_import(filepath=path)
     elif ext in [".glb", ".gltf"]:
         bpy.ops.import_scene.gltf(filepath=path)
     elif ext == ".stl":
